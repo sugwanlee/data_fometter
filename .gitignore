@@ -1,0 +1,11 @@
+venv
+__pycache__
+dist
+build
+origin
+formatted
+formatters
+build.py
+csv_to_excel.py
+find_linkcolumn_gui.py
+.env
