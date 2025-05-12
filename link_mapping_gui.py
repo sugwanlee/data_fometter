@@ -6,11 +6,12 @@ import mimetypes
 from datetime import datetime
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QVBoxLayout, 
                            QWidget, QPushButton, QFileDialog, QMessageBox,
-                           QHBoxLayout, QTextEdit, QSplitter, QFrame, QLineEdit)
+                           QHBoxLayout, QTextEdit, QSplitter, QFrame, QLineEdit,
+                           QProgressBar)
 from PyQt5.QtCore import Qt, QMimeData
 from PyQt5.QtGui import QDragEnterEvent, QDropEvent, QIcon
 import asyncio
-from link_mapping import process_csv, is_file_url, normalize_url, upload_file_to_supabase, get_public_url
+from link_mapping import process_csv, is_file_url, normalize_url, upload_file_to_supabase, get_public_url, find_table_for_column
 
 class LinkMappingWindow(QMainWindow):
     def __init__(self):
@@ -58,6 +59,27 @@ class LinkMappingWindow(QMainWindow):
         output_layout.addWidget(self.output_path_label)
         output_layout.addWidget(self.output_button)
         file_layout.addLayout(output_layout)
+        
+        # 진행 상황 표시
+        progress_layout = QVBoxLayout()
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                text-align: center;
+                height: 20px;
+            }
+            QProgressBar::chunk {
+                background-color: #28a745;
+                border-radius: 5px;
+            }
+        """)
+        self.current_file_label = QLabel('')
+        self.current_file_label.setAlignment(Qt.AlignCenter)
+        progress_layout.addWidget(self.progress_bar)
+        progress_layout.addWidget(self.current_file_label)
+        file_layout.addLayout(progress_layout)
         
         # 변환 버튼
         self.convert_button = QPushButton('변환 시작')
@@ -175,6 +197,13 @@ class LinkMappingWindow(QMainWindow):
         self.add_to_history(f"총 {len(rows)}건 처리 시작")
         self.add_to_history(f"파일 URL 컬럼: {', '.join(file_columns)}")
         
+        # 전체 처리할 URL 수 계산
+        total_urls = sum(1 for row in rows for col in file_columns if is_file_url(row[col]))
+        processed_urls = 0
+        
+        self.progress_bar.setMaximum(total_urls)
+        self.progress_bar.setValue(0)
+        
         for row in rows:
             for col in file_columns:
                 raw_url = row[col]
@@ -183,6 +212,11 @@ class LinkMappingWindow(QMainWindow):
                     
                 file_url = normalize_url(raw_url)
                 original_name = file_url.split('/')[-1]
+                table_name = find_table_for_column(col)
+                
+                # 현재 처리 중인 파일 표시
+                self.current_file_label.setText(f"처리 중: {original_name}")
+                QApplication.processEvents()
                 
                 try:
                     response = requests.get(file_url)
@@ -192,7 +226,10 @@ class LinkMappingWindow(QMainWindow):
                     storage_path = await upload_file_to_supabase(
                         response.content,
                         original_name,
-                        mime_type
+                        mime_type,
+                        table_name,
+                        col,
+                        row
                     )
                     public_url = get_public_url(storage_path)
                     row[col] = public_url
@@ -200,12 +237,18 @@ class LinkMappingWindow(QMainWindow):
                     
                 except Exception as e:
                     self.add_to_history(f"실패 ({file_url}): {str(e)}", "error")
+                
+                # 진행률 업데이트
+                processed_urls += 1
+                self.progress_bar.setValue(processed_urls)
+                QApplication.processEvents()
                     
         with open(self.output_file, 'w', newline='', encoding='utf-8') as file:
             writer = csv.DictWriter(file, fieldnames=columns)
             writer.writeheader()
             writer.writerows(rows)
             
+        self.current_file_label.setText("완료!")
         self.add_to_history(f"완료! 업데이트된 CSV 저장됨 → {os.path.basename(self.output_file)}", "success")
         
     def start_conversion(self):

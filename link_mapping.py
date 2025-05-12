@@ -6,7 +6,9 @@ from datetime import datetime
 import requests
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from formatter_config import BUCKET_CONFIGS  # formatter_config 설정 임포트
+from urllib.parse import unquote  # URL 디코딩을 위해 추가
 
 load_dotenv()
 
@@ -56,7 +58,8 @@ def is_file_url(value: str) -> bool:
 def normalize_url(url: str) -> str:
     """
     URL을 정규화하는 함수
-    '//'로 시작하는 URL을 'https://'로 변환
+    - '//'로 시작하는 URL을 'https://'로 변환
+    - URL 인코딩된 문자를 디코딩
     
     Args:
         url (str): 정규화할 URL
@@ -64,42 +67,56 @@ def normalize_url(url: str) -> str:
     Returns:
         str: 정규화된 URL
     """
-    return f'https:{url}' if url.startswith('//') else url
+    # URL 디코딩
+    decoded_url = unquote(url)
+    
+    # '//'로 시작하는 경우 'https:'를 추가
+    if decoded_url.startswith('//'):
+        return f'https:{decoded_url}'
+    # 'http://' 또는 'https://'로 시작하지 않는 경우 'https://'를 추가
+    elif not decoded_url.startswith(('http://', 'https://')):
+        return f'https://{decoded_url}'
+    return decoded_url
 
-def get_upload_path(file_name: str, column_name: str = None) -> str:
+def get_bucket_config(table_name: str, column_name: str) -> Dict[str, Any]:
     """
-    파일 이름에 따라 적절한 업로드 경로를 반환하는 함수
+    테이블과 컬럼에 해당하는 버킷 설정을 반환합니다.
     
     Args:
-        file_name (str): 파일 이름 또는 URL
-        column_name (str, optional): CSV 컬럼 이름
+        table_name (str): 테이블 이름
+        column_name (str): 컬럼 이름
         
     Returns:
-        str: 업로드 경로
+        Dict[str, Any]: 버킷 설정 정보
     """
-    # 특수 컬럼별 경로 매핑
-    if column_name == 'imgprofile':
-        return 'profile-images'
-    elif column_name == 'contractfile':
-        return 'contract'
-    
-    # URL에서 파일 이름 추출
-    if '?' in file_name:
-        file_name = file_name.split('?')[0]  # URL 파라미터 제거
-    
-    # 파일 확장자 추출
-    _, ext = os.path.splitext(file_name.lower())
-    
-    # 확장자가 없는 경우 MIME 타입으로 확인
-    if not ext:
-        # URL에서 파일 이름만 추출
-        file_name = file_name.split('/')[-1]
-        _, ext = os.path.splitext(file_name.lower())
-    
-    # 매핑된 경로 반환 또는 기본 경로 사용
-    return FILE_TYPE_MAPPING.get(ext, DEFAULT_UPLOAD_PATH)
+    table_config = BUCKET_CONFIGS.get(table_name, {})
+    return table_config.get(column_name, {})
 
-async def upload_file_to_supabase(file_content: bytes, original_name: str, mime_type: str, column_name: str = None) -> str:
+def get_file_name(original_name: str, bucket_config: Dict[str, Any], row: Dict[str, Any]) -> str:
+    """
+    파일 이름을 생성합니다. filename_pattern이 있으면 사용하고, 없으면 기본 패턴을 사용합니다.
+    
+    Args:
+        original_name (str): 원본 파일 이름
+        bucket_config (Dict[str, Any]): 버킷 설정
+        row (Dict[str, Any]): 현재 처리 중인 데이터 행
+        
+    Returns:
+        str: 생성된 파일 이름
+    """
+    if 'filename_pattern' in bucket_config:
+        try:
+            return bucket_config['filename_pattern'](row)
+        except:
+            pass
+    
+    timestamp = int(datetime.now().timestamp() * 1000)
+    unique_id = str(uuid.uuid4())
+    sanitized_name = original_name.replace(' ', '_')
+    return f"{timestamp}_{unique_id}_{sanitized_name}"
+
+async def upload_file_to_supabase(file_content: bytes, original_name: str, mime_type: str, 
+                                table_name: str, column_name: str, row: Dict[str, Any]) -> str:
     """
     파일을 Supabase 스토리지에 업로드하는 함수
     
@@ -107,33 +124,59 @@ async def upload_file_to_supabase(file_content: bytes, original_name: str, mime_
         file_content (bytes): 업로드할 파일의 바이너리 내용
         original_name (str): 원본 파일 이름
         mime_type (str): 파일의 MIME 타입
-        column_name (str, optional): CSV 컬럼 이름
+        table_name (str): 테이블 이름
+        column_name (str): 컬럼 이름
+        row (Dict[str, Any]): 현재 처리 중인 데이터 행
         
     Returns:
-        str: Supabase에 업로드된 파일의 경로
-        
-    Raises:
-        Exception: 업로드 실패 시 예외 발생
+        str: Supabase에 업로드된 파일의 경로 (버킷 이름 포함)
     """
-    # 고유한 파일명 생성 (타임스탬프 + UUID + 원본파일명)
-    timestamp = int(datetime.now().timestamp() * 1000)
-    unique_id = str(uuid.uuid4())
-    sanitized_name = original_name.replace(' ', '_')
-    new_file_name = f"{timestamp}_{unique_id}_{sanitized_name}"
+    bucket_config = get_bucket_config(table_name, column_name)
+    if not bucket_config:
+        raise Exception(f"버킷 설정을 찾을 수 없습니다: {table_name}.{column_name}")
     
-    # 파일 형식에 따른 업로드 경로 결정
-    upload_dir = get_upload_path(original_name, column_name)
-    upload_path = f"{upload_dir}/{new_file_name}"
-
+    bucket_name = bucket_config['name']
+    storage_path = bucket_config['path']
+    
     try:
-        # Supabase 스토리지에 파일 업로드
-        bucket = upload_dir.split('/')[0]  # 첫 번째 디렉토리를 버킷 이름으로 사용
-        result = supabase.storage.from_(bucket).upload(
-            upload_path,
-            file_content,
-            {"content-type": mime_type}
-        )
-        return upload_path
+        # 첫 번째 시도: 원본 파일 이름으로 업로드
+        file_name = original_name.split('/')[-1]
+        upload_path = f"{storage_path}/{file_name}"
+        
+        try:
+            # 기존 파일이 있다면 삭제
+            try:
+                supabase.storage.from_(bucket_name).remove([upload_path])
+            except:
+                pass  # 파일이 없어도 무시
+            
+            # 새로운 파일 업로드
+            result = supabase.storage.from_(bucket_name).upload(
+                upload_path,
+                file_content,
+                {"content-type": mime_type}
+            )
+            return f"{bucket_name}/{upload_path}"  # 버킷 이름과 경로 조합
+        except Exception as e:
+            if '400' in str(e):  # 400 에러 발생 시 filename_pattern으로 재시도
+                file_name = get_file_name(original_name, bucket_config, row)
+                upload_path = f"{storage_path}/{file_name}"
+                
+                # 기존 파일이 있다면 삭제
+                try:
+                    supabase.storage.from_(bucket_name).remove([upload_path])
+                except:
+                    pass  # 파일이 없어도 무시
+                
+                # 새로운 파일 업로드
+                result = supabase.storage.from_(bucket_name).upload(
+                    upload_path,
+                    file_content,
+                    {"content-type": mime_type}
+                )
+                return f"{bucket_name}/{upload_path}"  # 버킷 이름과 경로 조합
+            raise e
+            
     except Exception as e:
         raise Exception(f"Upload failed: {str(e)}")
 
@@ -142,16 +185,32 @@ def get_public_url(path: str) -> str:
     Supabase 스토리지의 파일에 대한 공개 URL을 생성하는 함수
     
     Args:
-        path (str): Supabase 스토리지 내 파일 경로
+        path (str): Supabase 스토리지 내 파일 경로 (버킷 이름 포함)
         
     Returns:
         str: 파일의 공개 접근 URL
     """
-    # 경로에서 버킷 이름 추출 (첫 번째 디렉토리)
-    bucket = path.split('/')[0]
-    # 버킷 이름을 제외한 나머지 경로
-    file_path = '/'.join(path.split('/')[1:])
+    # 경로에서 버킷 이름과 파일 경로 분리
+    parts = path.split('/', 1)
+    bucket = parts[0]
+    file_path = parts[1] if len(parts) > 1 else ''
+    
     return f"{SUPABASE_URL}/storage/v1/object/public/{bucket}/{file_path}"
+
+def find_table_for_column(column_name: str) -> Optional[str]:
+    """
+    주어진 컬럼이 어느 테이블에 속하는지 찾습니다.
+    
+    Args:
+        column_name (str): 찾을 컬럼 이름
+        
+    Returns:
+        Optional[str]: 테이블 이름. 찾지 못한 경우 None
+    """
+    for table_name, config in BUCKET_CONFIGS.items():
+        if column_name in config:
+            return table_name
+    return None
 
 async def process_csv():
     """
@@ -177,17 +236,21 @@ async def process_csv():
     
     columns = rows[0].keys()
     
-    # bubble.io URL이 포함된 컬럼 찾기
-    file_columns = [
-        col for col in columns 
-        if any(is_file_url(row[col]) for row in rows)
-    ]
-    
-    if not file_columns:
-        print("❌ 파일 URL을 포함한 컬럼을 찾을 수 없습니다.")
+    # 테이블 이름 확인 (CSV 파일명 또는 사용자 입력 필요)
+    table_name = input("테이블 이름을 입력하세요: ").lower()
+    if table_name not in BUCKET_CONFIGS:
+        print(f"❌ 지원하지 않는 테이블입니다: {table_name}")
         return
     
-    print(f"✅ 파일 URL 컬럼: {', '.join(file_columns)}")
+    # 처리할 컬럼 찾기
+    valid_columns = BUCKET_CONFIGS[table_name].keys()
+    file_columns = [col for col in columns if col in valid_columns]
+    
+    if not file_columns:
+        print("❌ 처리할 컬럼을 찾을 수 없습니다.")
+        return
+    
+    print(f"✅ 처리할 컬럼: {', '.join(file_columns)}")
     
     # 각 행의 URL 처리
     for row in rows:
@@ -213,7 +276,9 @@ async def process_csv():
                     response.content,
                     original_name,
                     mime_type,
-                    col  # 컬럼 이름 전달
+                    table_name,
+                    col,
+                    row
                 )
                 # 새로운 공개 URL 생성
                 public_url = get_public_url(storage_path)
