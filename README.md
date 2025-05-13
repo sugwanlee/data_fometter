@@ -27,7 +27,7 @@ python mapping_gui.py
 ## 1. 데이터 포맷터 (Data Formatter)
 
 ### 기능
-- CSV/Excel 파일의 데이터를 자동으로 포맷팅
+- CSV파일의 데이터를 자동으로 포맷팅
 - UUID 생성 및 변환
 - 날짜 형식 표준화
 - Boolean 값 변환 ('네'/'아니오' → True/False)
@@ -45,8 +45,3 @@ python data_formatter_gui.py
 3. 출력 폴더 선택 (선택사항):
    - '출력 폴더 선택하기' 버튼으로 지정
    - 지정하지 않으면 입력 파일과 같은 위치에 저장
-
-### 지원하는 파일 형식
-- CSV (.csv)
-
-```
