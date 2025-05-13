@@ -36,7 +36,7 @@ python mapping_gui.py
 ### 사용 방법
 1. GUI 실행:
 ```bash
-python data_formatter_gui.py
+python passed/data_formatter_gui.py
 ```
 
 2. 파일 선택:
