@@ -1,6 +1,28 @@
 # 데이터 포맷터 & 링크 매핑 도구
 
-이 프로젝트는 데이터 포맷팅과 파일 URL 매핑을 위한 두 가지 도구를 제공합니다.
+## 매핑 GUI 사용법 (Mapping GUI)
+
+### 기능
+- CSV 파일에서 bubble.io URL을 찾아 파일 다운로드
+- bubble.io URL을 S3 URL로 변환
+
+### 사용 방법
+1. GUI 실행:
+```bash
+python mapping_gui.py
+```
+
+2. CSV 파일 선택:
+   - '파일 선택' 버튼을 클릭하여 bubble.io URL이 포함된 CSV 파일 선택
+
+3. 작업 선택:
+   - '파일 다운로드': bubble.io URL에서 파일을 다운로드
+   - '링크 변환': bubble.io URL을 S3 URL로 변환
+
+4. 진행 상황:
+   - 터미널 창에서 진행 상황 확인 가능
+   - 작업 완료 시 알림 표시
+---
 
 ## 1. 데이터 포맷터 (Data Formatter)
 
@@ -26,57 +48,5 @@ python data_formatter_gui.py
 
 ### 지원하는 파일 형식
 - CSV (.csv)
-- Excel (.xlsx, .xls)
 
-## 2. 링크 매핑 도구 (Link Mapping)
-
-### 기능
-- Bubble.io URL을 Supabase 스토리지 URL로 변환
-- 파일 자동 다운로드 및 업로드
-- 파일 타입별 자동 분류
-
-### 사용 방법
-1. GUI 실행:
-```bash
-python link_mapping_gui.py
 ```
-
-2. 입력/출력 CSV 파일 선택:
-   - '입력 파일 선택' 버튼으로 Bubble.io URL이 포함된 CSV 파일 선택
-   - '출력 파일 선택' 버튼으로 결과를 저장할 CSV 파일 선택
-
-3. 변환 시작:
-   - '변환 시작' 버튼 클릭
-   - 변환 진행 상황이 실시간으로 표시됨
-
-### 파일 타입별 저장 경로
-- 이미지 파일 (.png, .jpg, .jfif) → image/
-- 오디오 파일 (.mp3) → track/mp3/
-- 오디오 파일 (.wav) → track/wav/
-- 문서 파일 (.pdf) → business/
-
-### 특수 컬럼 처리
-- imgprofile 컬럼 → profile-images/
-- contractfile 컬럼 → contract/
-
-## 환경 설정
-
-### 필요한 Python 패키지
-```
-pandas
-PyQt5
-requests
-supabase
-```
-
-### Supabase 설정
-`.env` 파일에서 다음 설정을 변경하세요:
-```python
-SUPABASE_URL = 'your-project-url'
-SUPABASE_KEY = 'your-service-role-key'
-```
-
-## 주의사항
-1. 대용량 파일 처리 시 메모리 사용량에 주의
-2. Supabase 스토리지 용량 제한 확인
-3. 네트워크 연결 상태 확인

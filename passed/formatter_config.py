@@ -218,45 +218,45 @@ TABLE_CONFIGS = {
     # },
 }
 
-BUCKET_CONFIGS = {
-    'album': {
-        'cover': {
-            'name': 'image', 
-            'path': 'album',
-            'filename_pattern': lambda row: f"{row.get('codealbum', '')}_IMG.jpg"
-        }
-    },
-    'label': {
-        'logo': {'name': 'image', 'path': 'label'},
-    },
-    'musician': {
-        'imageprofile': {'name': 'image', 'path': 'musician'},
-        'imageverification': {'name': 'image', 'path': 'musician'},
-    },
-    'shorts_channels': {
-        'thumbnails': {'name': 'image', 'path': 'shorts-channel'},
-    },
-    'shorts_contracts': {
-        'contractfile': {'name': 'contract', 'path': 'contract'},
-    },
-    'shorts_licensed_video': {
-        'thumbnails': {'name': 'image', 'path': 'shorts-video'},
-    },
-    'track': {
-        'mp3 (ar)': {
-            'name': 'track', 
-            'path': 'mp3',
-            'filename_pattern': lambda row: f"{row.get('trackcode', '')}-{row.get('tracknumber', '')}.mp3"
-        },
-        'wav (ar)': {
-            'name': 'track', 
-            'path': 'wav',
-            'filename_pattern': lambda row: f"{row.get('trackcode', '')}-{row.get('tracknumber', '')}.wav"
-        },
-    },
-    'user': {
-        'imgprofile': {'name': 'profile-image', 'path': 'profile-image'},
-        'businessbankaccountfile': {'name': 'business', 'path': 'business'},
-        'businessreg-document': {'name': 'business', 'path': 'business'},
-    }
-}
+# BUCKET_CONFIGS = {
+#     'album': {
+#         'cover': {
+#             'name': 'image', 
+#             'path': 'album',
+#             'filename_pattern': lambda row: f"{row.get('codealbum', '')}_IMG.jpg"
+#         }
+#     },
+#     'label': {
+#         'logo': {'name': 'image', 'path': 'label'},
+#     },
+#     'musician': {
+#         'imageprofile': {'name': 'image', 'path': 'musician'},
+#         'imageverification': {'name': 'image', 'path': 'musician'},
+#     },
+#     'shorts_channels': {
+#         'thumbnails': {'name': 'image', 'path': 'shorts-channel'},
+#     },
+#     'shorts_contracts': {
+#         'contractfile': {'name': 'contract', 'path': 'contract'},
+#     },
+#     'shorts_licensed_video': {
+#         'thumbnails': {'name': 'image', 'path': 'shorts-video'},
+#     },
+#     'track': {
+#         'mp3 (ar)': {
+#             'name': 'track', 
+#             'path': 'mp3',
+#             'filename_pattern': lambda row: f"{row.get('trackcode', '')}-{row.get('tracknumber', '')}.mp3"
+#         },
+#         'wav (ar)': {
+#             'name': 'track', 
+#             'path': 'wav',
+#             'filename_pattern': lambda row: f"{row.get('trackcode', '')}-{row.get('tracknumber', '')}.wav"
+#         },
+#     },
+#     'user': {
+#         'imgprofile': {'name': 'profile-image', 'path': 'profile-image'},
+#         'businessbankaccountfile': {'name': 'business', 'path': 'business'},
+#         'businessreg-document': {'name': 'business', 'path': 'business'},
+#     }
+# }
