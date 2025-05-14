@@ -1,6 +1,7 @@
 import csv
 import os
 from datetime import datetime
+from urllib.parse import unquote
 
 def is_bubble_url(value: str) -> bool:
     """
@@ -24,11 +25,14 @@ def convert_to_s3_url(bubble_url: str) -> str:
     Returns:
         str: 변환된 S3 URL
     """
+    # URL 디코딩
+    decoded_url = unquote(bubble_url)
+    
     # bubble.io 도메인 이후의 경로 추출
-    path = bubble_url.split('.bubble.io/')[-1] if '.bubble.io/' in bubble_url else bubble_url.split('bubble.io/')[-1]
+    path = decoded_url.split('.bubble.io/')[-1] if '.bubble.io/' in decoded_url else decoded_url.split('bubble.io/')[-1]
     
     # S3 URL 생성
-    s3_url = f"https://plpl-file.s3.ap-northeast-2.amazonaws.com/{path}"
+    s3_url = f"https://plpl-file-from-bubble.s3.ap-northeast-2.amazonaws.com/{path}"
     
     return s3_url
 

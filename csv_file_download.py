@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 import asyncio
 from datetime import datetime
 from tqdm import tqdm
+from urllib.parse import unquote
 
 def is_bubble_url(value: str) -> bool:
     """
@@ -29,13 +30,16 @@ def normalize_url(url: str) -> str:
     Returns:
         str: 정규화된 URL
     """
+    # URL 디코딩
+    decoded_url = unquote(url)
+    
     # '//'로 시작하는 경우 'https:'를 추가
-    if url.startswith('//'):
-        return f'https:{url}'
+    if decoded_url.startswith('//'):
+        return f'https:{decoded_url}'
     # 'http://' 또는 'https://'로 시작하지 않는 경우 'https://'를 추가
-    elif not url.startswith(('http://', 'https://')):
-        return f'https://{url}'
-    return url
+    elif not decoded_url.startswith(('http://', 'https://')):
+        return f'https://{decoded_url}'
+    return decoded_url
 
 def get_file_name(url: str) -> str:
     """
@@ -47,10 +51,13 @@ def get_file_name(url: str) -> str:
     Returns:
         str: 파일 경로
     """
+    # URL 디코딩
+    decoded_url = unquote(url)
+    
     # bubble.io 도메인 이후의 경로를 추출
-    path = url.split('.bubble.io/')[-1]
+    path = decoded_url.split('.bubble.io/')[-1]
     if not path:
-        return url.split('/')[-1]
+        return decoded_url.split('/')[-1]
     
     return path
 
